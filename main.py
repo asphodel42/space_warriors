@@ -1,5 +1,8 @@
 import pygame
+import time
+import emoji
 from random import randint
+
 
 class GameSprite(pygame.sprite.Sprite):
     """Main class for sprites"""
@@ -24,6 +27,7 @@ class GameSprite(pygame.sprite.Sprite):
 class Player(GameSprite):
     # controls
     def update(self):
+        global ammo_count
         keys = pygame.key.get_pressed()
         if keys[pygame.K_a] and self.rect.x > 5:
             self.rect.x -= self.speed
@@ -33,25 +37,33 @@ class Player(GameSprite):
             self.rect.y -= self.speed
         if keys[pygame.K_s] and self.rect.y < window_height - 105:
             self.rect.y += self.speed
+        if keys[pygame.K_r]:
+            ammo_count = 6
+
 
     # Create a bullet that's moving up
     def fire(self):
         bullet = Bullet(image_bullet, self.rect.centerx, self.rect.y, 10, 60, 20)
         return bullet
+    
 
 
 class Alien(GameSprite):
     def update(self):
-        global missed_aliens, finish
+        global missed_aliens, finish, current_lives
         self.rect.y += self.speed
         # Disapear if crossed the edge of window
         if self.rect.y > window_height:
             self.rect.x = randint(100, window_width - 100)
             self.rect.y = 0
             missed_aliens += 1
+
         if self.rect.colliderect(ship.rect):
-            window.blit(lost, (450, 400))
-            finish = True
+            current_lives -= 1
+            print(current_lives)
+            self.rect.x = randint(80, window_width-80)
+            self.rect.y = -40
+            
 
     def collision(self):
         global score_points
@@ -67,7 +79,6 @@ class Alien(GameSprite):
 class Bullet(GameSprite):
     def update(self):
         self.rect.y -= self.speed
-
         if self.rect.y <= -100:
             self.kill()
         
@@ -83,9 +94,11 @@ sound_explosion = 'assets/music/explosion.ogg'  # Explosion
 image_icon = 'assets/background/icon.png'  # Icon
 font_name = "assets/font/Starjout.ttf"  # Font
 
+# Vars
 score_points = 0
 missed_aliens = 0
 ammo_count = 6
+current_lives = 3  # Number of HP
 
 finish = False
 game = True
@@ -124,14 +137,15 @@ pygame.font.init()
 font = pygame.font.Font(font_name, 25)
 font_finish = pygame.font.Font(None, 100)
 lost = font_finish.render('YOU LOST', True, (120, 13, 31))
-# ammo = font.render(f'Ammo: {ammo_count}', True, (255, 232, 31))
+win = font_finish.render('YOU WIN', True, (32, 252, 3))
 
 
 while game:  # Game loop
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             game = False
-        if event.type == pygame.MOUSEBUTTONDOWN and len(bullets) <= 3:
+        if event.type == pygame.MOUSEBUTTONDOWN and ammo_count > 0:
+            ammo_count -= 1
             bullets.add(ship.fire())
             shoot_sound.play()
 
@@ -140,12 +154,15 @@ while game:  # Game loop
         # Render fonts
         score = font.render(f'Score: {score_points}', True, (255, 232, 31))
         missed = font.render(f'Missed: {missed_aliens}', True, (255, 232, 31))
+        ammo = font.render(f'Ammo: {int(ammo_count)}', True, (255, 232, 31))
+        hp = font.render(f'{current_lives}', True, (255, 232, 31))
         
         # Update background
         window.blit(background, (0,0))  # Background
         window.blit(score, (10, 0))  # Score label
         window.blit(missed, (10, 25))  # Missed label
-        # window.blit(ammo, (window_width - 150, window_height - 50))  # Ammo label
+        window.blit(ammo, (window_width - 150, window_height - 50))  # Ammo label
+        window.blit(hp, (window_width - 50, 15))  # HP Label
 
         # Update movement
         for alien in aliens:
@@ -160,6 +177,18 @@ while game:  # Game loop
         aliens.draw(window)
         ship.reset()
 
+        # Losing
+        if current_lives <= 0:
+            finish = True
+            window.blit(lost, (450, 450))
+        if missed_aliens >= 6:
+            finish = True
+            window.blit(lost, (450, 450))
+
+        # Winning
+        if score_points >= 30:
+            finish = True
+            window.blit(win, (500, 400))
     
     pygame.display.update()
 
